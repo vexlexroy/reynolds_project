@@ -36,6 +36,8 @@ class BoidCalculator_decent(Node):
         self.min_linear:float = self.get_parameter('min_linear').value # type: ignore
         self.declare_parameter('max_angular', 3.0)
         self.max_angular:float = self.get_parameter('max_angular').value # type: ignore
+        self.declare_parameter('turn_rate', 30.0)
+        self.turn_rate:float = self.get_parameter('turn_rate').value # type: ignore
 
 
 
@@ -127,10 +129,18 @@ class BoidCalculator_decent(Node):
                 update = Twist()
                 if self.is_turning: # update x and yaw if turning
                     update.linear.x = updated_vector[0] # type: ignore
+                    update.linear.y = 0.0
+                    update.linear.z = 0.0
+                    update.angular.x = 0.0
+                    update.angular.y = 0.0
                     update.angular.z = updated_vector[1] # type: ignore
                 else: # update linear x and y
                     update.linear.x = updated_vector[0] # type: ignore
                     update.linear.y = updated_vector[1] # type: ignore
+                    update.linear.z = 0.0
+                    update.angular.x = 0.0
+                    update.angular.y = 0.0
+                    update.angular.z = 0.0
                 self.newboid.publish(update)
         self.last_time = time
 
@@ -139,7 +149,7 @@ class BoidCalculator_decent(Node):
 
     def compute_boid_vector(self, deltaT, neighborhoodIDs, obstacle = None, goal = None):
         '''Computes the boid vector for a given boid id and its neighborhoodIDs. Returns np.array [x, y]'''
-        if( self.pose is None): return
+        if( self.pose is None): return None
         mypose = self.pose
         myq = self.orient 
 
@@ -147,7 +157,7 @@ class BoidCalculator_decent(Node):
         myyaw = np.arctan2(
             2 * (myq.w * myq.z + myq.x * myq.y), 1 - 2 * (myq.y**2 + myq.z**2))# type: ignore
 
-        current_linear = self.linear.x  # type: ignore
+        current_linear = np.sqrt(self.linear.x**2 + self.linear.y**2)  # type: ignore
         current_angular = self.angular.z # type: ignore
 
         separation = self.separation_vector(mypose, neighborhoodIDs)
@@ -181,14 +191,15 @@ class BoidCalculator_decent(Node):
 
         if self.is_turning: # using turning + linear x
             heading_error = np.arctan2(boid_vector[1], boid_vector[0])
-
+            
+            kp = self.turn_rate
             force = np.linalg.norm(boid_vector) * np.sign(boid_vector[0])
-            angular_acc = heading_error*deltaT
+            angular_acc = pow(abs(heading_error),(1/2)) * kp * np.sign(heading_error)
 
 
             acceleration = force * deltaT/self.mass # acceleration
             
-            new_vel = max(self.min_linear , min(self.max_linear, current_linear + acceleration))
+            new_vel = np.clip(current_linear + acceleration, self.min_linear, self.max_linear)
             new_ang = np.clip( current_angular + angular_acc, -self.max_angular, self.max_angular)
 
             return [new_vel, new_ang]

@@ -92,12 +92,12 @@ class Boid_calculator(Node):
         new_vector = [xy_vector[0], xy_vector[1]]
         
         newmsg = Twist()
-        newmsg.linear.x = min(new_vector[0], self.max_linear)
+        newmsg.linear.x = new_vector[0]
         newmsg.linear.y = 0.0
         newmsg.linear.z = 0.0
         newmsg.angular.x = 0.0
         newmsg.angular.y = 0.0
-        newmsg.angular.z = min(new_vector[1], self.max_angular)
+        newmsg.angular.z = new_vector[1]
         self.newboid[id].publish(newmsg)
         return
     
