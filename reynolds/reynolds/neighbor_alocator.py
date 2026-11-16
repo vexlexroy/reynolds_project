@@ -4,6 +4,8 @@ from my_robot_msgs.msg import OdometryArray, GoalPoint
 from nav_msgs.msg import OccupancyGrid
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Point
+from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
+
 
 import numpy as np
 
@@ -40,12 +42,18 @@ class NeighborAlocator(Node):
 
         self.reynodl_data_pub = [self.create_publisher(OdometryArray, f'robot_{i}/neigbors', 10) for i in self.ids]
         
+        map_qos = QoSProfile(
+            reliability=ReliabilityPolicy.RELIABLE,
+            durability=DurabilityPolicy.TRANSIENT_LOCAL,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1
+        )
         self.map_sub = self.create_subscription(
             OccupancyGrid,
             '/map',
             self.map_callback,
-            10
-        )
+            map_qos
+)
         
         self.goal_sub = self.create_subscription(
             GoalPoint, '/goal_point', self.update_goal, 10)
@@ -166,9 +174,9 @@ class NeighborAlocator(Node):
 
         self.obstacles = np.column_stack((x_coords, y_coords))
 
-        self.get_logger().info(
-                f"obsticles: {self.obstacles}"
-                )
+        # self.get_logger().info(
+        #         f"obsticles: {self.obstacles}"
+        #         )
 
     def nearest_obstacle(self, pose:Point) -> tuple[int,int] | None:
         if len(self.obstacles) == 0:
