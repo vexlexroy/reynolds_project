@@ -94,7 +94,7 @@ class BoidCalculator_decent(Node):
         dx = -(obstacle.x - pose.x)
         dy = -(obstacle.y - pose.y)
         dist = np.sqrt(dx**2 + dy**2)
-        return np.array([dx/dist**2, dy/dist**2])
+        return np.array([dx/dist**4, dy/dist**4])
 
     def get_goal_vector(self, pose, goalpose:Point):
         dx = (goalpose.x - pose.x)

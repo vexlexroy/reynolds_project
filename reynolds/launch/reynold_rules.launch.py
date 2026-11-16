@@ -40,10 +40,10 @@ def generate_launch_description():
             output='screen',
             parameters=[{
                 'id' : i,
-                'coefs': [2.5, 0.2, 1.7, 1.5, 0.5], # sep, al, coh, obst, goal
-                'mass': 5.5,
+                'coefs': [2.5, 0.5, 5.5, 0.5, 0.5], # sep, al, coh, obst, goal
+                'mass': 10.5,
                 'is_turning': False,
-                'max_linear': 0.5,
+                'max_linear': 0.3,
                 'min_linear': -0.2,
                 'max_angular': 6.0,
                 'turn_rate' : 12.0
