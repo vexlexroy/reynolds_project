@@ -28,7 +28,7 @@ class BoidCalculator_decent(Node):
         self.declare_parameter('mass', 1.0) 
         self.mass:float = self.get_parameter('mass').value # type: ignore
         self.declare_parameter('is_turning', True) 
-        self.is_turning:float = self.get_parameter('is_turning').value # type: ignore
+        self.is_turning:bool = self.get_parameter('is_turning').value # type: ignore
 
         self.declare_parameter('max_linear', 1.0)
         self.max_linear:float = self.get_parameter('max_linear').value # type: ignore

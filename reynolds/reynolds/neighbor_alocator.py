@@ -22,6 +22,8 @@ class NeighborAlocator(Node):
         self.fov:int = self.get_parameter('fov').value # type: ignore
         self.declare_parameter('max_distance', 3.0)
         self.max_distance:float = self.get_parameter('max_distance').value # type: ignore
+        self.declare_parameter('is_turning', True) 
+        self.is_turning:bool = self.get_parameter('is_turning').value # type: ignore
 
 
         self.boids={}
@@ -84,7 +86,7 @@ class NeighborAlocator(Node):
         for id in self.boids:
             if id != id_subject and self.is_neighbor(id_subject,id,self.max_distance,self.fov):
                 neighbors.append(self.odoms[id])
-        nearest_object:tuple = self.nearest_obstacle(self.boids[id_subject]['position']) # type: ignore
+        nearest_object:tuple = self.nearest_obstacle(self.boids[id_subject]['position'], id_subject) # type: ignore
         
         if nearest_object is not None and self.is_neighbor_obj(id_subject, nearest_object, self.max_distance, self.fov):
             msg.has_obstacle = True
@@ -114,10 +116,14 @@ class NeighborAlocator(Node):
             return False
 
         q = self.boids[id_subject]['orientation']
-        yaw = np.arctan2(
-            2 * (q.w * q.z + q.x * q.y),
-            1 - 2 * (q.y**2 + q.z**2)
-        )
+        v = self.boids[id_subject]['linear']
+        if self.is_turning: # heading from orientation
+            yaw = np.arctan2(
+                2 * (q.w * q.z + q.x * q.y),
+                1 - 2 * (q.y**2 + q.z**2)
+            )
+        else: # heading from motion vector
+            yaw = np.arctan2(v.y,v.x)
         angle = np.rad2deg(np.arctan2(dy,dx)- yaw)
         if (abs(angle) > fov/2): # checks angle
             return False
@@ -136,19 +142,12 @@ class NeighborAlocator(Node):
         if (distance > max_distance): # cjhecks distance
             return False
 
-        q = self.boids[id_subject]['orientation']
-        yaw = np.arctan2(
-            2 * (q.w * q.z + q.x * q.y),
-            1 - 2 * (q.y**2 + q.z**2)
-        )
-        angle = np.rad2deg(np.arctan2(dy,dx)- yaw)
-
         # self.get_logger().info(
         # f"found obsticle angle: {angle} < {fov/2}"
         # )
 
-        if (abs(angle) > fov/2): # checks angle
-            return False
+        # if (abs(angle) > fov/2): # checks angle
+            # return False
         return True
 
     def map_callback(self, msg):
@@ -178,7 +177,7 @@ class NeighborAlocator(Node):
         #         f"obsticles: {self.obstacles}"
         #         )
 
-    def nearest_obstacle(self, pose:Point) -> tuple[int,int] | None:
+    def nearest_obstacle(self, pose:Point, id_subject) -> tuple[int,int] | None:
         if len(self.obstacles) == 0:
             return None
 
@@ -188,7 +187,29 @@ class NeighborAlocator(Node):
             self.obstacles - position,
             axis=1
         )
+        # check if its in view
+        i=len(distances)
         closest_index = np.argmin(distances)
+        max_d = distances[np.argmax(distances)]
+        while(i>0):
+            closest_index = np.argmin(distances)
+            q = self.boids[id_subject]['orientation']
+            v = self.boids[id_subject]['linear']
+            if self.is_turning: # heading from orientation
+                yaw = np.arctan2(
+                    2 * (q.w * q.z + q.x * q.y),
+                    1 - 2 * (q.y**2 + q.z**2)
+                )
+            else: # heading from motion vector
+                yaw = np.arctan2(v.y,v.x)
+            
+            dx = self.obstacles[closest_index][0] - pose.x
+            dy = self.obstacles[closest_index][1] - pose.y 
+            angle = np.rad2deg(np.arctan2(dy,dx)- yaw)
+            if abs(angle) > self.fov/2:
+                distances[closest_index] = max_d+1.0
+            else:
+                break
 
         # self.get_logger().info(
         #                 f"found obsticle: {self.obstacles[closest_index]}"
