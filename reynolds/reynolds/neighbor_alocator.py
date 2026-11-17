@@ -27,7 +27,7 @@ class NeighborAlocator(Node):
 
 
         self.boids={}
-        self.odoms={}
+        self.odoms:dict[int,Odometry]={}
         self.obstacles = self.obstacles = np.empty((0, 2))
         self.goal = GoalPoint()
         self.goal.active=False
@@ -59,6 +59,10 @@ class NeighborAlocator(Node):
         
         self.goal_sub = self.create_subscription(
             GoalPoint, '/goal_point', self.update_goal, 10)
+        
+        self.average_odom_pub = self.create_publisher(Odometry, '/robot_avg/odom', 10)
+        self.last_avg_odom=Odometry()
+        self.timer = self.create_timer(1/10, self.calc_avg_odom)
 
 
 
@@ -89,17 +93,45 @@ class NeighborAlocator(Node):
         nearest_object:tuple = self.nearest_obstacle(self.boids[id_subject]['position'], id_subject) # type: ignore
         
         if nearest_object is not None and self.is_neighbor_obj(id_subject, nearest_object, self.max_distance, self.fov):
-            msg.has_obstacle = True
+            msg.has_obstacle = True # type: ignore
             obstacle.x = nearest_object[0] # type: ignore
             obstacle.y = nearest_object[1] # type: ignore  
         else:
-            msg.has_obstacle = False
+            msg.has_obstacle = False # type: ignore
         msg.odometries = neighbors
         msg.obstacle = obstacle
-        msg.has_goal = self.goal.active
+        msg.has_goal = self.goal.active # type: ignore
         msg.goal = self.goal.goal
         
         self.reynodl_data_pub[id_subject].publish(msg)
+        
+        
+    def calc_avg_odom(self):
+        
+        avg_odom=Odometry()
+        n = len(self.odoms)
+        if len(self.odoms) == 0:
+            return
+        for odom in self.odoms.values():
+            avg_odom.pose.pose.position.x += odom.pose.pose.position.x/n
+            avg_odom.pose.pose.position.y += odom.pose.pose.position.y/n
+            avg_odom.pose.pose.orientation.x += odom.pose.pose.orientation.x/n
+            avg_odom.twist.twist.linear.x += odom.twist.twist.linear.x/n 
+            avg_odom.twist.twist.linear.y += odom.twist.twist.linear.y/n
+            avg_odom.twist.twist.angular.z += odom.twist.twist.angular.z/n
+        avg_odom.header = odom.header
+        
+        delta_x:float = self.last_avg_odom.pose.pose.position.x - avg_odom.pose.pose.position.x
+        delta_y:float = self.last_avg_odom.pose.pose.position.y - avg_odom.pose.pose.position.y
+        delta_p:float = np.sqrt(delta_x**2 + delta_y**2)
+        if (delta_p >= 0.01):
+            self.average_odom_pub.publish(avg_odom)
+            self.last_avg_odom = avg_odom
+        return
+        
+        
+            
+        
             
             
         

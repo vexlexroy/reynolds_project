@@ -41,13 +41,14 @@ def generate_launch_description():
             output='screen',
             parameters=[{
                 'id' : i,
-                'coefs': [5.4, 0.5, 5.5, 0.5, 1.2], # sep, al, coh, obst, goal
-                'mass': 10.5,
+                'coefs': [5.4, 0.3, 5.4, 0.5, 1.5], # sep, al, coh, obst, goal
+                'mass': 7.5,
                 'is_turning': turning,
-                'max_linear': 0.4,
-                'min_linear': -0.2,
-                'max_angular': 9.0,
-                'turn_rate' : 36.0
+                'max_linear': 0.3,
+                'min_linear': 0.0,
+                'max_acceleration' : 0.6, 
+                'max_angular': 1.0*3.14,
+                'turn_rate' : 4.0,
             }]
         ) for i in ids],
         
@@ -58,8 +59,8 @@ def generate_launch_description():
             output='screen',
             parameters=[{
                 'spheroID' : ids,
-                'fov' : 310.0,
-                'max_distance' : 3.5,
+                'fov' : 360.0,
+                'max_distance' : 3.0,
                 'is_turning': turning,
             }]
         ),

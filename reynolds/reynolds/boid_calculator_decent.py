@@ -34,6 +34,10 @@ class BoidCalculator_decent(Node):
         self.max_linear:float = self.get_parameter('max_linear').value # type: ignore
         self.declare_parameter('min_linear', 0.0)
         self.min_linear:float = self.get_parameter('min_linear').value # type: ignore
+        self.declare_parameter('max_acceleration', 1.0)
+        self.max_acceleration:float = self.get_parameter('max_acceleration').value # type: ignore
+        self.declare_parameter('max_decceleration', 1.0)
+        self.max_decceleration:float = self.get_parameter('max_decceleration').value # type: ignore
         self.declare_parameter('max_angular', 3.0)
         self.max_angular:float = self.get_parameter('max_angular').value # type: ignore
         self.declare_parameter('turn_rate', 30.0)
@@ -190,36 +194,49 @@ class BoidCalculator_decent(Node):
         boid_vector = R @ boid_vector
 
         if self.is_turning: # using turning + linear x
+            
+            #heading / angular
             heading_error = np.arctan2(boid_vector[1], boid_vector[0])
-            
             kp = self.turn_rate
-            force = np.linalg.norm(boid_vector) * np.sign(boid_vector[0])
-            angular_acc = pow(abs(heading_error),(1/2)) * kp * np.sign(heading_error)
+            # angular_acc = pow(abs(heading_error),0.5) * kp * np.sign(heading_error)
+            angular_acc = np.sin(heading_error/2)*kp
 
-
-            acceleration = force * deltaT/self.mass # acceleration
+            #speed my model
+            # alignment_factor = max(0.0, np.cos(heading_error))
+            # desired_speed = self.max_linear * alignment_factor
+            # acc = desired_speed - current_linear
             
-            new_vel = np.clip(current_linear + acceleration, self.min_linear, self.max_linear)
-            new_ang = np.clip( current_angular + angular_acc, -self.max_angular, self.max_angular)
+            #physical speed model
+            force_x = boid_vector[0]
+            acc = force_x/self.mass
+            
+            acc = np.clip(acc, -self.max_acceleration, self.max_acceleration)
+            
+            new_vel = np.clip(current_linear + acc*deltaT, self.min_linear, self.max_linear) 
+            new_ang = np.clip(0*current_angular + angular_acc, -self.max_angular, self.max_angular)
+            
+            
+            
 
             return [new_vel, new_ang]
 
         else:
-            n = np.linalg.norm(boid_vector)
-            
-            if n < 1e-9:
-                return np.array([0.0, 0.0])
-            
-            acc = n * deltaT / self.mass # acceleration model
+            force = np.linalg.norm(boid_vector)
             current_speed = np.array([self.linear.x, self.linear.y]) # type: ignore
-            new_speed_vector = current_speed + (boid_vector / n) * acc # new linear speed vector
+            if force < 1e-9: # small force
+                return current_speed
+    
+            #acceleration model
+            acc = force * self.mass
+            acc = min(self.max_acceleration, acc) 
             
+            #speed calculation
+            new_speed_vector = current_speed + (boid_vector / force) * acc * deltaT # new linear speed vector
             new_norm = np.linalg.norm(new_speed_vector)
-            if new_norm < 1e-9:
+            if new_norm < 1e-9: # small speed
                 return np.array([0.0, 0.0])
-            
             new_speed = min(self.max_linear, new_norm) # check against max speed
-            return new_speed * new_speed_vector / new_norm # finall speed vector
+            return new_speed * (new_speed_vector / new_norm) # finall speed vector
 
 
     def self_state_callback(self, msg:Odometry):
