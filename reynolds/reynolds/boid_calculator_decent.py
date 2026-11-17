@@ -67,7 +67,9 @@ class BoidCalculator_decent(Node):
             dy = -(self.boids[id]['position'].y - pose.y)
             dist = np.sqrt(dx**2 + dy**2)
             total_vector = total_vector + np.array([dx/dist**2, dy/dist**2]) # in global frame
-        return total_vector/max(len(neighborhoodIDs),1) # type: ignore
+        Fr = total_vector/max(len(neighborhoodIDs),1)
+        kt = -0.5
+        return Fr + np.array([-Fr[1],Fr[0]])*kt
 
     def alignment_vector(self, neighborhoodIDs:list[int]):
         '''computes average heading and spead vector for all neighbors in global frame'''
@@ -95,10 +97,12 @@ class BoidCalculator_decent(Node):
 
 
     def get_obstacle_vector(self, pose, obstacle:Point):
+        kt = 0.5
         dx = -(obstacle.x - pose.x)
         dy = -(obstacle.y - pose.y)
         dist = np.sqrt(dx**2 + dy**2)
-        return np.array([dx/dist**4, dy/dist**4])
+        Fr = np.array([dx/dist**4, dy/dist**4])
+        return Fr + np.array([-Fr[1],Fr[0]])*kt
 
     def get_goal_vector(self, pose, goalpose:Point):
         dx = (goalpose.x - pose.x)
