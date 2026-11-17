@@ -32,7 +32,7 @@ def generate_launch_description():
     perspective = os.path.join(get_package_share_directory('reynolds'), 'launch', 'boid_speed.perspective')
     
     ids = range(0,10) # num of robots
-    turning = False # if it uses turning logic
+    turning = True # if it uses turning logic
     return LaunchDescription([
         *[Node(
             package='reynolds',
@@ -41,13 +41,13 @@ def generate_launch_description():
             output='screen',
             parameters=[{
                 'id' : i,
-                'coefs': [3.7, 0.5, 5.5, 0.5, 0.5], # sep, al, coh, obst, goal
+                'coefs': [5.4, 0.5, 5.5, 0.5, 1.2], # sep, al, coh, obst, goal
                 'mass': 10.5,
                 'is_turning': turning,
                 'max_linear': 0.4,
                 'min_linear': -0.2,
-                'max_angular': 6.0,
-                'turn_rate' : 12.0
+                'max_angular': 9.0,
+                'turn_rate' : 36.0
             }]
         ) for i in ids],
         
@@ -58,7 +58,7 @@ def generate_launch_description():
             output='screen',
             parameters=[{
                 'spheroID' : ids,
-                'fov' : 270.0,
+                'fov' : 310.0,
                 'max_distance' : 3.5,
                 'is_turning': turning,
             }]
