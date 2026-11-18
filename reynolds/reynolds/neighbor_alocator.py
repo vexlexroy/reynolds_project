@@ -5,7 +5,7 @@ from nav_msgs.msg import OccupancyGrid
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Point, Twist
 from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
-from std_msgs.msg import Float32MultiArray
+from std_msgs.msg import Float32MultiArray, Float32
 
 import numpy as np
 
@@ -83,6 +83,8 @@ class NeighborAlocator(Node):
         self.tw_avg_pub = self.create_publisher(Twist, 'robot_avg/twist', 10)
         self.tw_avg = Twist()
         self.last_v = [0.0, 0.0]
+        
+        self.eta_pub = self.create_publisher(Float32MultiArray, 'robot_avg/eta',10) # [dist, time]
 
 
 
@@ -181,6 +183,23 @@ class NeighborAlocator(Node):
             self.average_odom_pub.publish(avg_odom)
             self.tw_avg_pub.publish(avg_twist)
             self.acc_avg_pub.publish(avg_acc)
+            
+        if(self.goal.active):
+            goal_p = self.goal.goal
+            avg_point = avg_odom.pose.pose.position
+            dgoal = np.array([goal_p.x-avg_point.x, goal_p.y-avg_point.y])
+            v = np.array([avg_twist.linear.x, avg_twist.linear.y])
+            distance = np.sqrt((dgoal[0])**2 + (dgoal[1])**2) 
+            eta=0.0
+            if distance < 0.01:
+                return 
+            closing_speed = np.dot(v,dgoal)/distance
+            if closing_speed <= 0.001:
+                eta = 100000000.0
+            eta = distance / closing_speed
+            eta_msg=Float32MultiArray()
+            eta_msg.data=[distance, eta]
+            self.eta_pub.publish(eta_msg)
         return
         
         
