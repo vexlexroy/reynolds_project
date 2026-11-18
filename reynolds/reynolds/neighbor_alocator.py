@@ -111,9 +111,7 @@ class NeighborAlocator(Node):
         self.last_speed_pose[id]={'stamp':t, 'speed':s, 'ang':a} # type: ignore
 
         self.send_neighbors_data(id, msg.header)
-        self.acc_x_pub.publish(self.acc_x)
-        self.acc_y_pub.publish(self.acc_y)
-        self.acc_w_pub.publish(self.acc_w)
+        
         
         
         
@@ -147,6 +145,11 @@ class NeighborAlocator(Node):
         
         
     def calc_avg_odom(self):
+        
+        self.acc_x_pub.publish(self.acc_x)
+        self.acc_y_pub.publish(self.acc_y)
+        self.acc_w_pub.publish(self.acc_w)
+        
         avg_twist = Twist()
         avg_acc = Float32MultiArray()
         avg_odom=Odometry()
