@@ -3,9 +3,9 @@ from rclpy.node import Node
 from my_robot_msgs.msg import OdometryArray, GoalPoint
 from nav_msgs.msg import OccupancyGrid
 from nav_msgs.msg import Odometry
-from geometry_msgs.msg import Point
+from geometry_msgs.msg import Point, Twist
 from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
-
+from std_msgs.msg import Float32MultiArray
 
 import numpy as np
 
@@ -42,6 +42,7 @@ class NeighborAlocator(Node):
             for i in self.ids # type: ignore
         ]
 
+        # pub for neighbors
         self.reynodl_data_pub = [self.create_publisher(OdometryArray, f'robot_{i}/neigbors', 10) for i in self.ids]
         
         map_qos = QoSProfile(
@@ -62,7 +63,26 @@ class NeighborAlocator(Node):
         
         self.average_odom_pub = self.create_publisher(Odometry, '/robot_avg/odom', 10)
         self.last_avg_odom=Odometry()
-        self.timer = self.create_timer(1/10, self.calc_avg_odom)
+        self.timer = self.create_timer(1/20, self.calc_avg_odom)
+        
+        # for acceleration ploting
+        self.acc_x_pub = self.create_publisher(Float32MultiArray, 'robot_all/accels/x', 10)
+        self.acc_x = Float32MultiArray()
+        self.acc_x.data = [0.0]*len(self.ids)
+        self.acc_y_pub = self.create_publisher(Float32MultiArray, 'robot_all/accels/y', 10)
+        self.acc_y = Float32MultiArray()
+        self.acc_y.data = [0.0]*len(self.ids)
+        self.acc_w_pub = self.create_publisher(Float32MultiArray, 'robot_all/accels/w', 10)
+        self.acc_w = Float32MultiArray()
+        self.acc_w.data = [0.0]*len(self.ids)
+        self.last_speed_pose = {i:{"speed":None,"ang":None, "stamp": None} for i in self.ids}  # type: ignore
+        
+        self.acc_avg_pub = self.create_publisher(Float32MultiArray, 'robot_avg/acc', 10)
+        self.acc_avg = Float32MultiArray()
+        self.acc_avg.data = [0.0, 0.0] # x and y
+        self.tw_avg_pub = self.create_publisher(Twist, 'robot_avg/twist', 10)
+        self.tw_avg = Twist()
+        self.last_v = [0.0, 0.0]
 
 
 
@@ -70,12 +90,32 @@ class NeighborAlocator(Node):
         
     def update_boid(self, msg:Odometry, id):
         '''Save boid in dictionary {id: {position: , orientation: , linear: , angular: }}'''
+        # p = msg.pose.pose.position
+        s = msg.twist.twist.linear
+        a = msg.twist.twist.angular
+        t = msg.header.stamp.nanosec * 1e-9 + msg.header.stamp.sec
         self.boids[id] = {'position': msg.pose.pose.position,
                             'orientation': msg.pose.pose.orientation,
                             'linear': msg.twist.twist.linear,
                             'angular':msg.twist.twist.angular}
         self.odoms[id] = msg
+        
+        if (self.last_speed_pose[id]['stamp'] is not None):
+            dtime = t - self.last_speed_pose[id]['stamp'] # type: ignore
+            dsx = s.x - self.last_speed_pose[id]['speed'].x # type: ignore
+            dsy = s.y - self.last_speed_pose[id]['speed'].y # type: ignore
+            daz = s.z - self.last_speed_pose[id]['ang'].z # type: ignore
+            self.acc_x.data[id] = dsx/dtime
+            self.acc_y.data[id] = dsy/dtime
+            self.acc_w.data[id] = daz/dtime
+        self.last_speed_pose[id]={'stamp':t, 'speed':s, 'ang':a} # type: ignore
+
         self.send_neighbors_data(id, msg.header)
+        self.acc_x_pub.publish(self.acc_x)
+        self.acc_y_pub.publish(self.acc_y)
+        self.acc_w_pub.publish(self.acc_w)
+        
+        
         
     def update_goal(self, msg:GoalPoint):
         self.goal = msg
@@ -107,7 +147,8 @@ class NeighborAlocator(Node):
         
         
     def calc_avg_odom(self):
-        
+        avg_twist = Twist()
+        avg_acc = Float32MultiArray()
         avg_odom=Odometry()
         n = len(self.odoms)
         if len(self.odoms) == 0:
@@ -121,12 +162,22 @@ class NeighborAlocator(Node):
             avg_odom.twist.twist.angular.z += odom.twist.twist.angular.z/n
         avg_odom.header = odom.header
         
-        delta_x:float = self.last_avg_odom.pose.pose.position.x - avg_odom.pose.pose.position.x
-        delta_y:float = self.last_avg_odom.pose.pose.position.y - avg_odom.pose.pose.position.y
+        delta_x:float = -self.last_avg_odom.pose.pose.position.x + avg_odom.pose.pose.position.x
+        delta_y:float = -self.last_avg_odom.pose.pose.position.y + avg_odom.pose.pose.position.y
+        t1 = avg_odom.header.stamp
+        t2 =  self.last_avg_odom.header.stamp
+        delta_t:float =  t1.sec + t1.nanosec * 1e-9 - t2.sec - t2.nanosec * 1e-9
+        avg_twist.linear.x = delta_x/delta_t
+        avg_twist.linear.y = delta_y/delta_t
+        avg_acc.data = [(avg_twist.linear.x - self.last_v[0])/delta_t,
+                        (avg_twist.linear.y - self.last_v[1])/delta_t]
         delta_p:float = np.sqrt(delta_x**2 + delta_y**2)
-        if (delta_p >= 0.01):
+        self.last_avg_odom = avg_odom
+        self.last_v = [avg_twist.linear.x,avg_twist.linear.y]
+        if (delta_p >= 0.001):
             self.average_odom_pub.publish(avg_odom)
-            self.last_avg_odom = avg_odom
+            self.tw_avg_pub.publish(avg_twist)
+            self.acc_avg_pub.publish(avg_acc)
         return
         
         

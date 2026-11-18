@@ -29,10 +29,10 @@ def generate_launch_description():
     #         'stage.launch.py'
     # )
     
-    perspective = os.path.join(get_package_share_directory('reynolds'), 'launch', 'boid_speed.perspective')
+    perspective = os.path.join(get_package_share_directory('reynolds'), 'launch', 'boid_speed_lab2.perspective')
     
     ids = range(0,10) # num of robots
-    turning = True # if it uses turning logic
+    turning = False # if it uses turning logic
     return LaunchDescription([
         *[Node(
             package='reynolds',
@@ -47,8 +47,8 @@ def generate_launch_description():
                 'max_linear': 0.3,
                 'min_linear': 0.0,
                 'max_acceleration' : 0.6, 
-                'max_angular': 1.0*3.14,
-                'turn_rate' : 4.0,
+                'max_angular': 1.5*3.14,
+                'turn_rate' : 3.5,
             }]
         ) for i in ids],
         
@@ -59,7 +59,7 @@ def generate_launch_description():
             output='screen',
             parameters=[{
                 'spheroID' : ids,
-                'fov' : 360.0,
+                'fov' : 250.0,
                 'max_distance' : 3.0,
                 'is_turning': turning,
             }]
@@ -71,6 +71,7 @@ def generate_launch_description():
             name='goal_point_selector',
             output='screen',
             parameters=[{
+                'path_l': 60,
             }]
         ),
         
@@ -78,10 +79,10 @@ def generate_launch_description():
                     PythonLaunchDescriptionSource(robots_launch)
                 ),
         
-        # Node(
-        #     package='rqt_gui',
-        #     executable='rqt_gui',
-        #     name='rqt',
-        #     arguments=['--perspective-file', perspective],
-        # )
+        Node(
+            package='rqt_gui',
+            executable='rqt_gui',
+            name='rqt',
+            arguments=['--perspective-file', perspective],
+        )
     ])

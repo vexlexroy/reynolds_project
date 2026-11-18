@@ -22,6 +22,7 @@ class BoidCalculator_decent(Node):
         self.linear = None
         self.angular = None
         self.goal_point = None
+        self.last_angular = 0.0
 
         self.declare_parameter('coefs', [1.0,1.0,1.0,1.0,1.0]) # vector coefs (sep, alig, coh, obs, goal)
         self.coefs:list = self.get_parameter('coefs').value # type: ignore
@@ -201,9 +202,15 @@ class BoidCalculator_decent(Node):
             
             #heading / angular
             heading_error = np.arctan2(boid_vector[1], boid_vector[0])
-            kp = self.turn_rate
-            # angular_acc = pow(abs(heading_error),0.5) * kp * np.sign(heading_error)
-            angular_acc = np.sin(heading_error/2)*kp
+            # kp = self.turn_rate
+            
+            angular_speed = np.sin(heading_error/2)*self.max_angular
+            new_ang = angular_speed
+
+            #smoot TODO: doesent realy work
+            # angular_speed = np.sin(heading_error/2)*self.max_angular
+            # new_ang_acc = angular_speed - current_angular
+            # new_ang = current_angular + kp*new_ang_acc*deltaT
 
             #speed my model
             # alignment_factor = max(0.0, np.cos(heading_error))
@@ -217,7 +224,7 @@ class BoidCalculator_decent(Node):
             acc = np.clip(acc, -self.max_acceleration, self.max_acceleration)
             
             new_vel = np.clip(current_linear + acc*deltaT, self.min_linear, self.max_linear) 
-            new_ang = np.clip(0*current_angular + angular_acc, -self.max_angular, self.max_angular)
+            new_ang = np.clip(new_ang, -self.max_angular, self.max_angular)
             
             
             
